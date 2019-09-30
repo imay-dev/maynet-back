@@ -2,6 +2,8 @@ const express = require('express')
 const router = express.Router()
 const gravatar = require('gravatar')
 const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+const keys = require('../../config/keys')
 
 // Load User Model
 const User = require('../../models/User')
@@ -13,7 +15,7 @@ router.get('/test', (req, res) => res.json({msg: "Users Module Works"}))
 
 
 // @route   POST api/users/register
-// @desc    Register user
+// @desc    Register User
 // @access  Public
 router.post('/register', (req, res) => {
     User.findOne({
@@ -48,6 +50,55 @@ router.post('/register', (req, res) => {
             })
         }
     })
+    .catch(err => console.log(err))
+})
+
+
+// @route   POST api/users/login
+// @desc    User Login
+// @access  Public
+router.post('/login', (req, res) => {
+    const email = req.body.email
+    const password = req.body.password
+
+    // Find User by Email
+    User
+        .findOne({email})
+        .then(user => {
+            // Check for User
+            if (!user) res.status(404).json({email: 'User Not Found'})
+
+            // Check Password
+            bcrypt
+                .compare(password, user.password)
+                .then(isMatch => {
+                    if (isMatch) {
+                        // User Matched
+                        const payload = {
+                            id: user.id,
+                            name: user.name,
+                            avatar: user.avatar
+                        }
+
+                        // Sign Token
+                        jwt.sign(
+                            payload,
+                            keys.secretOrKey,
+                            { expiresIn : 3600 },
+                            (err, token) => {
+                                res.json({
+                                    success: true,
+                                    token: 'Bearer ' + token
+                                })
+                            })
+
+                        // res.status(200).json({msg: 'Success'})
+                    } else {
+                        res.status(400).json({password: 'Incorrect Password'})
+                    }
+                })
+        })
+        .catch(err => console.log(err))
 })
 
 
